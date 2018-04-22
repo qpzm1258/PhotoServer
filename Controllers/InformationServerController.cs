@@ -132,7 +132,7 @@ namespace PhotosServer.Controllers
                                                                 && c.Folk == model.AgentFolk
                                                                 && c.Gender == model.AgentGender).AsTracking().FirstOrDefaultAsync();
 
-            if(transactor == null)
+            if(transactor == new IDInformation())
             {
                 String _photo = null, _idcardimage=null;
                 if (model.Photo != null)
@@ -167,7 +167,7 @@ namespace PhotosServer.Controllers
                 
             }
 
-            if(agent == null && model.AgentIDNumber != string.Empty)
+            if(agent == new IDInformation() && model.AgentIDNumber != string.Empty)
             {
                 String _agentPhoto = null,_agentidcardimage = null;
                 if (model.AgentPhoto != null)
@@ -223,7 +223,7 @@ namespace PhotosServer.Controllers
                 HandlePhotoGuid = Path.GetFileNameWithoutExtension(_handelPhoto)
             };
 
-            if(agent != null)
+            if(agent != new IDInformation())
             {
                 transact.AgentInfo = agent;
             }
