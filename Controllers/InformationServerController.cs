@@ -94,9 +94,12 @@ namespace PhotosServer.Controllers
             {
                 return BadRequest(ModelState);
             }
-            Information information = new Information();
+            //Information information = new Information();
             var rooPath = _hostingEnvironment.WebRootPath;
-            var uploadsPath = rooPath + "/Uploads/"+ DateTime.Now.Year.ToString()+"/"+ DateTime.Now.Month.ToString() + "/" + DateTime.Now.Day.ToString()+"/";
+            var uploadsPath = rooPath + "/Uploads/HandlePhoto/"+ DateTime.Now.Year.ToString()+"/"+ DateTime.Now.Month.ToString() + "/" + DateTime.Now.Day.ToString()+"/";
+            var cardInfoPath = rooPath + "/Uploads/CardInfo";
+            var photoPath = cardInfoPath+"/Photo/";
+            var cardImagePath = cardInfoPath+"/CardImage/";
             if(model.Name==null)
             {
                 return CreatedAtAction("GetInformation", new { result = false, errmesg = "办理者姓名不能为空" });
@@ -108,7 +111,98 @@ namespace PhotosServer.Controllers
             }
 
             Directory.CreateDirectory(uploadsPath);
-            String _photo = null, _handelPhoto = null, _agentPhoto = null,_idcardimage=null,_agentidcardimage=null;
+            Directory.CreateDirectory(photoPath);
+            Directory.CreateDirectory(cardImagePath);
+            IDInformation transactor = await _context.IDInformation.Where(c => c.Name==model.Name 
+                                                                && c.Code==model.IDNumber 
+                                                                && c.Address == model.Address
+                                                                && c.Agency == model.Agency
+                                                                && c.BirthDay == model.BirthDay
+                                                                && c.ExpireEnd == model.ExpireEnd
+                                                                && c.ExpireStart == model.ExpireStart
+                                                                && c.Folk == model.Folk
+                                                                && c.Gender == model.Gender).AsTracking().FirstOrDefaultAsync();
+            IDInformation agent = await _context.IDInformation.Where(c => c.Name == model.AgentName
+                                                                && c.Code == model.AgentIDNumber 
+                                                                && c.Address == model.AgentAddress
+                                                                && c.Agency == model.AgentAgency
+                                                                && c.BirthDay == model.AgentBirthDay
+                                                                && c.ExpireEnd == model.AgentExpireEnd
+                                                                && c.ExpireStart == model.AgentExpireStart
+                                                                && c.Folk == model.AgentFolk
+                                                                && c.Gender == model.AgentGender).AsTracking().FirstOrDefaultAsync();
+
+            if(transactor == null)
+            {
+                String _photo = null, _idcardimage=null;
+                if (model.Photo != null)
+                {
+                    _photo = Path.Combine(photoPath, System.Guid.NewGuid().ToString().Replace("-", "") + Path.GetExtension(model.Photo.FileName).ToLower());
+                    using (var memoryStream = new FileStream(_photo, FileMode.Create))
+                    {
+                        await model.Photo.CopyToAsync(memoryStream);
+                    }
+                }
+
+                if (model.IDCardImage != null)
+                {
+                    _idcardimage = Path.Combine(cardImagePath, System.Guid.NewGuid().ToString().Replace("-", "") + Path.GetExtension(model.IDCardImage.FileName).ToLower());
+                    using (var memoryStream = new FileStream(_idcardimage, FileMode.Create))
+                    {
+                        await model.IDCardImage.CopyToAsync(memoryStream);
+                    }
+                }
+                transactor = new IDInformation(){Name = model.Name
+                                                ,Code = model.IDNumber
+                                                ,Address = model.Address
+                                                ,Agency = model.Agency
+                                                ,BirthDay = model.BirthDay
+                                                ,ExpireEnd = model.ExpireEnd
+                                                ,ExpireStart = model.ExpireStart
+                                                ,Folk = model.Folk
+                                                ,Gender = model.Gender
+                                                ,ImageGuid = Path.GetFileNameWithoutExtension(_photo)
+                                                ,CardImageGuid = Path.GetFileNameWithoutExtension(_idcardimage)
+                                                };
+                
+            }
+
+            if(agent == null && model.AgentIDNumber != string.Empty)
+            {
+                String _agentPhoto = null,_agentidcardimage = null;
+                if (model.AgentPhoto != null)
+                {
+                    _agentPhoto = Path.Combine(photoPath, System.Guid.NewGuid().ToString().Replace("-", "") + Path.GetExtension(model.AgentPhoto.FileName).ToLower());
+                    using (var memoryStream = new FileStream(_agentPhoto, FileMode.Create))
+                    {
+                        await model.AgentPhoto.CopyToAsync(memoryStream);
+                    }
+                }
+
+                if (model.AgentIDCardImage != null)
+                {
+                    _agentidcardimage = Path.Combine(cardImagePath, System.Guid.NewGuid().ToString().Replace("-", "") + Path.GetExtension(model.AgentIDCardImage.FileName).ToLower());
+                    using (var memoryStream = new FileStream(_agentidcardimage, FileMode.Create))
+                    {
+                        await model.AgentIDCardImage.CopyToAsync(memoryStream);
+                    }
+                }
+
+                agent = new IDInformation(){Name = model.AgentName
+                                                ,Code = model.AgentIDNumber
+                                                ,Address = model.AgentAddress
+                                                ,Agency = model.AgentAgency
+                                                ,BirthDay = model.AgentBirthDay
+                                                ,ExpireEnd = model.AgentExpireEnd
+                                                ,ExpireStart = model.AgentExpireStart
+                                                ,Folk = model.AgentFolk
+                                                ,Gender = model.AgentGender
+                                                ,ImageGuid = Path.GetFileNameWithoutExtension(_agentPhoto)
+                                                ,CardImageGuid = Path.GetFileNameWithoutExtension(_agentidcardimage)
+                                                };
+            }
+                                                                
+            String _handelPhoto = null;
             if (model.HandlePhoto != null)
             {
                 _handelPhoto = Path.Combine(uploadsPath, System.Guid.NewGuid().ToString().Replace("-", "") + Path.GetExtension(model.HandlePhoto.FileName).ToLower());
@@ -121,55 +215,30 @@ namespace PhotosServer.Controllers
             {
                 return CreatedAtAction("GetInformation", new { result = false ,errmesg="无办理照片"});
             }
-            if (model.Photo != null)
+
+            Transact transact = new Transact(){
+                UpdateTime = DateTime.Now,
+                ServiceType = model.ServiceType,
+                TransactorInfo = transactor,
+                HandlePhotoGuid = Path.GetFileNameWithoutExtension(_handelPhoto)
+            };
+
+            if(agent != null)
             {
-                _photo = Path.Combine(uploadsPath, System.Guid.NewGuid().ToString().Replace("-", "") + Path.GetExtension(model.Photo.FileName).ToLower());
-                using (var memoryStream = new FileStream(_photo, FileMode.Create))
-                {
-                    await model.Photo.CopyToAsync(memoryStream);
-                }
+                transact.AgentInfo = agent;
             }
-
-            if (model.AgentPhoto != null)
-            {
-                _agentPhoto = Path.Combine(uploadsPath, System.Guid.NewGuid().ToString().Replace("-", "") + Path.GetExtension(model.AgentPhoto.FileName).ToLower());
-                using (var memoryStream = new FileStream(_agentPhoto, FileMode.Create))
-                {
-                    await model.AgentPhoto.CopyToAsync(memoryStream);
-                }
-            }
-
-            if (model.IDCardImage != null)
-            {
-                _idcardimage = Path.Combine(uploadsPath, System.Guid.NewGuid().ToString().Replace("-", "") + Path.GetExtension(model.IDCardImage.FileName).ToLower());
-                using (var memoryStream = new FileStream(_idcardimage, FileMode.Create))
-                {
-                    await model.IDCardImage.CopyToAsync(memoryStream);
-                }
-            }
-
-            if (model.AgentIDCardImage != null)
-            {
-                _agentidcardimage = Path.Combine(uploadsPath, System.Guid.NewGuid().ToString().Replace("-", "") + Path.GetExtension(model.AgentIDCardImage.FileName).ToLower());
-                using (var memoryStream = new FileStream(_agentidcardimage, FileMode.Create))
-                {
-                    await model.AgentIDCardImage.CopyToAsync(memoryStream);
-                }
-            }
-
-
-            information.Name = model.Name;
-            information.IDNumber = model.IDNumber;
-            information.AgentName = model.AgentName;
-            information.AgentIDNumber = model.AgentIDNumber;
-            information.Photo = Path.GetFileName(_photo);
-            information.HandlePhoto = Path.GetFileName(_handelPhoto);
-            information.AgentPhoto = Path.GetFileName(_agentPhoto);
-            information.AgentIDCardImage = Path.GetFileName(_agentidcardimage);
-            information.IDCardImage = Path.GetFileName(_idcardimage);
-            information.UpdateTime = DateTime.Now;
-            information.ServiceType = model.ServiceType;
-            _context.Information.Add(information);
+            //information.Name = model.Name;
+            //information.IDNumber = model.IDNumber;
+            //information.AgentName = model.AgentName;
+            //information.AgentIDNumber = model.AgentIDNumber;
+            //information.Photo = Path.GetFileName(_photo);
+            //information.HandlePhoto = Path.GetFileName(_handelPhoto);
+            //information.AgentPhoto = Path.GetFileName(_agentPhoto);
+            //information.AgentIDCardImage = Path.GetFileName(_agentidcardimage);
+            //information.IDCardImage = Path.GetFileName(_idcardimage);
+            //information.UpdateTime = DateTime.Now;
+            //information.ServiceType = model.ServiceType;
+            _context.Transact.Add(transact);
             await _context.SaveChangesAsync();
 
             return CreatedAtAction("GetInformation", new { result = true });

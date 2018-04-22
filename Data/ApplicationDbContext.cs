@@ -24,5 +24,7 @@ namespace PhotosServer.Data
         }
 
         public DbSet<PhotosServer.Models.Information> Information { get; set; }
+        public DbSet<PhotosServer.Models.IDInformation>IDInformation {get; set; }
+        public DbSet<PhotosServer.Models.Transact>Transact {get; set; }
     }
 }

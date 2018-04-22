@@ -3,3 +3,5 @@ bin
 obj
 Properties
 wwwroot/Uploads
+!wwwroot/
+database.db
